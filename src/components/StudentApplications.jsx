@@ -11,59 +11,53 @@ import { Link, useNavigate } from 'react-router-dom';
 const StudentApplications = () => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('All Applications');
+    const [applications, setApplications] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [profile, setProfile] = useState(null);
 
-    const applications = [
-        {
-            id: 1,
-            company: 'GlobalTech Solutions',
-            role: 'Software Engineer',
-            date: 'Oct 24, 2024',
-            status: 'Technical Round',
-            statusColor: 'bg-yellow-100 text-yellow-700',
-            logo: 'G',
-            logoBg: 'bg-slate-100 text-slate-600'
-        },
-        {
-            id: 2,
-            company: 'Nexus Financials',
-            role: 'Data Analyst',
-            date: 'Oct 20, 2024',
-            status: 'Offer Extended',
-            statusColor: 'bg-green-100 text-green-700',
-            logo: 'N',
-            logoBg: 'bg-slate-100 text-slate-600'
-        },
-        {
-            id: 3,
-            company: 'Volt Systems',
-            role: 'QA Engineer',
-            date: 'Oct 15, 2024',
-            status: 'In Progress',
-            statusColor: 'bg-blue-100 text-blue-700',
-            logo: 'V',
-            logoBg: 'bg-slate-100 text-slate-600'
-        },
-        {
-            id: 4,
-            company: 'CloudNet Inc',
-            role: 'SRE Intern',
-            date: 'Oct 12, 2024',
-            status: 'Rejected',
-            statusColor: 'bg-red-100 text-red-700',
-            logo: 'C',
-            logoBg: 'bg-slate-100 text-slate-600'
-        }
-    ];
+    React.useEffect(() => {
+        const fetchApplications = async () => {
+            try {
+                const res = await api.get('/students/me');
+                setProfile(res.data.data);
+                const apps = res.data.data.applications || [];
+                setApplications(apps.map(app => ({
+                    id: app._id,
+                    jobId: app.job?._id,
+                    company: app.job?.company?.name || app.job?.company || 'Company',
+                    role: app.job?.title || 'Applied Position',
+                    date: new Date(app.appliedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                    status: app.status.charAt(0) ? app.status.split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ') : app.status,
+                    statusColor: app.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                        app.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                            app.status === 'shortlisted' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700',
+                    logo: (app.job?.company?.name || app.job?.company || 'C')[0].toUpperCase(),
+                    logoBg: 'bg-slate-100 text-slate-600'
+                })));
+            } catch (err) {
+                console.error('Error fetching applications:', err);
+                if (err.response?.status === 401) navigate('/login');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchApplications();
+    }, [navigate]);
+
+    if (loading) {
+        return <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        </div>;
+    }
 
     const nextSteps = [
-        { label: 'Technical Prep - GlobalTech', sub: 'Scheduled for Tomorrow, 10 AM', checked: false },
-        { label: 'Accept Nexus Offer', sub: 'Deadline: Oct 28, 2024', checked: false },
-        { label: 'Update Mock Test', sub: 'Practice Aptitude Round', checked: false }
+        { label: 'Technical Prep', sub: 'Scheduled Interviews appear here', checked: false },
+        { label: 'Check Notifications', sub: 'For status updates', checked: false }
     ];
 
-    // Get profile data from localStorage
-    const profileData = JSON.parse(localStorage.getItem('studentProfileData')) || {};
-    const { fullName = 'Student Name', email = 'student@univ.edu' } = profileData;
+    const fullName = profile?.user?.name || "Student";
+    const email = profile?.user?.email || "";
 
     return (
         <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden">

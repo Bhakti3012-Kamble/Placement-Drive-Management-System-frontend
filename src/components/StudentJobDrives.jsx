@@ -2,74 +2,53 @@ import React, { useState } from 'react';
 import {
     Search, Bell, Settings, User, SlidersHorizontal,
     MapPin, Calendar, Bookmark, Briefcase, DollarSign,
-    ChevronLeft, ChevronRight, CheckCircle2, ArrowLeft
+    ChevronLeft, ChevronRight, CheckCircle2, ArrowLeft, Clock, Loader2
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
 const StudentJobDrives = () => {
     const navigate = useNavigate();
+    const [jobs, setJobs] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({
         industry: ['Software & IT'],
         ctc: [6, 24],
         jobType: 'Full-time'
     });
 
-    const jobs = [
-        {
-            id: 1,
-            company: 'TechNova Solutions',
-            role: 'Software Development Engineer',
-            logo: 'T',
-            logoBg: 'bg-blue-50 text-blue-600',
-            ctc: '₹18.5 - 22 LPA',
-            location: 'Bangalore (Hybrid)',
-            deadline: 'Ends in 2 days',
-            deadlineColor: 'text-red-500',
-            match: 'MATCHED FOR YOU',
-            minCgpa: '7.5+ CGPA',
-            tags: ['Full-time']
-        },
-        {
-            id: 2,
-            company: 'FinTrust Bank',
-            role: 'Data Analyst Intern',
-            logo: 'F',
-            logoBg: 'bg-indigo-50 text-indigo-600',
-            ctc: '₹40k / month',
-            location: 'Mumbai',
-            deadline: 'Apply by Oct 30',
-            deadlineColor: 'text-slate-500',
-            minCgpa: '8.0+ CGPA',
-            tags: ['Internship']
-        },
-        {
-            id: 3,
-            company: 'EcoDrive Motors',
-            role: 'Associate Product Manager',
-            logo: 'E',
-            logoBg: 'bg-emerald-50 text-emerald-600',
-            ctc: '₹12 - 15 LPA',
-            location: 'Remote',
-            deadline: 'Apply by Nov 5',
-            deadlineColor: 'text-slate-500',
-            match: 'MATCHED FOR YOU',
-            minCgpa: '6.5+ CGPA',
-            tags: ['Full-time']
-        },
-        {
-            id: 4,
-            company: 'BlueStack Systems',
-            role: 'Fullstack Developer',
-            logo: 'B',
-            logoBg: 'bg-orange-50 text-orange-600',
-            ctc: '₹10 - 14 LPA',
-            location: 'Hyderabad',
-            deadline: 'Apply by Oct 28',
-            deadlineColor: 'text-slate-500',
-            minCgpa: '7.0+ CGPA',
-            tags: ['Full-time']
+    React.useEffect(() => {
+        const fetchJobs = async () => {
+            try {
+                const res = await api.get('/jobs');
+                setJobs(res.data.data);
+            } catch (err) {
+                console.error('Error fetching jobs:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchJobs();
+    }, []);
+
+    const handleApply = async (jobId) => {
+        try {
+            await api.post(`/jobs/${jobId}/apply`);
+            alert('Successfully applied!');
+            // Refresh jobs or update local state
+            const res = await api.get('/jobs');
+            setJobs(res.data.data);
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to apply');
         }
-    ];
+    };
+
+    if (loading) {
+        return <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        </div>;
+    }
 
     // Get profile data from localStorage
     const profileData = JSON.parse(localStorage.getItem('studentProfileData')) || {};
@@ -216,41 +195,39 @@ const StudentJobDrives = () => {
                                     <div>
                                         <div className="flex items-start justify-between mb-6">
                                             <div className="flex gap-4">
-                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black shrink-0 ${job.logoBg}`}>
-                                                    {job.logo}
+                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black shrink-0 bg-indigo-50 text-indigo-600`}>
+                                                    {job.company?.[0]?.toUpperCase() || 'J'}
                                                 </div>
                                                 <div>
-                                                    <h3 className="font-black text-lg text-slate-900 leading-tight mb-1 group-hover:text-indigo-600 transition-colors">{job.role}</h3>
+                                                    <h3 className="font-black text-lg text-slate-900 leading-tight mb-1 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{job.title}</h3>
                                                     <p className="text-sm font-bold text-slate-500">{job.company}</p>
                                                 </div>
                                             </div>
-                                            {job.match && (
-                                                <span className="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-black uppercase tracking-wider rounded-full shrink-0">
-                                                    Matched For You
-                                                </span>
-                                            )}
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-y-4 gap-x-2 mb-8">
                                             <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                                                <DollarSign size={16} className="text-slate-400" /> {job.ctc}
+                                                <DollarSign size={16} className="text-slate-400" /> ₹{job.ctc} LPA
                                             </div>
                                             <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                                                <Calendar size={16} className={`text-slate-400 ${job.deadlineColor}`} />
-                                                <span className={job.deadlineColor === 'text-red-500' ? 'text-red-500' : ''}>{job.deadline}</span>
+                                                <Calendar size={16} className="text-slate-400" />
+                                                <span>Apply by {new Date(job.deadline).toLocaleDateString()}</span>
                                             </div>
                                             <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
                                                 <MapPin size={16} className="text-slate-400" /> {job.location}
                                             </div>
                                             <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                                                <CheckCircle2 size={16} className="text-slate-400" /> {job.minCgpa}
+                                                <CheckCircle2 size={16} className="text-slate-400" /> {job.minCgpa}+ CGPA
                                             </div>
                                         </div>
                                     </div>
 
                                     <div className="flex gap-3 mt-auto">
-                                        <button className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100">
-                                            View Details
+                                        <button
+                                            onClick={() => handleApply(job._id)}
+                                            className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100 active:scale-95"
+                                        >
+                                            Apply Now
                                         </button>
                                         <button className="p-3 bg-white border border-slate-200 text-slate-400 rounded-xl hover:text-indigo-600 hover:border-indigo-200 transition-all">
                                             <Bookmark size={20} />

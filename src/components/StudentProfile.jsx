@@ -8,19 +8,58 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import api from '../utils/api';
+
 const StudentProfile = () => {
     const navigate = useNavigate();
-    const [profileData, setProfileData] = React.useState(null);
+    const [profile, setProfile] = React.useState(null);
+    const [loading, setLoading] = React.useState(true);
     const [activeTab, setActiveTab] = React.useState('General Info');
 
     React.useEffect(() => {
-        const savedData = localStorage.getItem('studentProfileData');
-        if (savedData) {
-            setProfileData(JSON.parse(savedData));
-        }
-    }, []);
+        const fetchProfile = async () => {
+            try {
+                const res = await api.get('/students/me');
+                setProfile(res.data.data);
+            } catch (err) {
+                console.error('Error fetching profile:', err);
+                if (err.response?.status === 401) {
+                    navigate('/login');
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
 
-    const { personal = {}, academic = {}, documents = {} } = profileData || {};
+        fetchProfile();
+    }, [navigate]);
+
+    if (loading) {
+        return <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        </div>;
+    }
+
+    // Mapping backend data to component needs
+    const personal = {
+        fullName: profile?.user?.name,
+        email: profile?.user?.email,
+        phone: profile?.phone, // Note: Backend Student model might need phone added if not there
+        dob: profile?.dob
+    };
+
+    const academic = {
+        university: profile?.university,
+        rollNumber: profile?.rollNo,
+        branch: profile?.branch,
+        semester: profile?.semester,
+        cgpa: profile?.cgpa,
+        graduationYear: profile?.graduationYear
+    };
+
+    const documents = {
+        resume: profile?.resume
+    };
 
     const displayValue = (val, fallback = "Not provided") =>
         val || <span className="text-slate-300 italic">{fallback}</span>;

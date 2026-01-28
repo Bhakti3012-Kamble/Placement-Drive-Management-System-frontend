@@ -7,55 +7,71 @@ import {
     ArrowLeft, Settings
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
 const StudentDashboard = () => {
     const navigate = useNavigate();
-    const [profileData, setProfileData] = React.useState(null);
+    const [jobs, setJobs] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
 
     React.useEffect(() => {
-        const savedData = localStorage.getItem('studentProfileData');
-        if (savedData) {
-            setProfileData(JSON.parse(savedData));
-        }
-    }, []);
+        const fetchData = async () => {
+            try {
+                const [profileRes, jobsRes] = await Promise.all([
+                    api.get('/students/me'),
+                    api.get('/jobs?limit=2') // Fetch top 2 recommendations
+                ]);
+                setProfile(profileRes.data.data);
+                setJobs(jobsRes.data.data);
+            } catch (err) {
+                console.error('Error fetching dashboard data:', err);
+                if (err.response?.status === 401) {
+                    navigate('/login');
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
 
-    const fullName = profileData?.personal?.fullName || "Alex Rivera";
-    const email = profileData?.personal?.email || "alex.rivera@univ.edu";
+        fetchData();
+    }, [navigate]);
+
+    if (loading) {
+        return <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        </div>;
+    }
+
+    const fullName = profile?.user?.name || "Student";
+    const email = profile?.user?.email || "";
     const firstName = fullName.split(' ')[0];
+    const applications = profile?.applications || [];
 
     const stats = [
-        { label: 'Applied Jobs', value: 12, icon: Send, color: 'blue' },
-        { label: 'Shortlisted', value: '03', icon: ShieldCheck, color: 'green' },
-        { label: 'Upcoming Interviews', value: '02', icon: Calendar, color: 'orange' }
+        { label: 'Applied Jobs', value: applications.length, icon: Send, color: 'blue' },
+        { label: 'Shortlisted', value: applications.filter(app => app.status === 'shortlisted').length, icon: ShieldCheck, color: 'green' },
+        { label: 'Upcoming Interviews', value: '00', icon: Calendar, color: 'orange' }
     ];
 
-    const jobDrives = [
-        {
-            company: 'Google',
-            role: 'Software Development Engineer',
-            location: 'Remote / Bangalore',
-            package: '25.5 LPA',
-            experience: '0-1 Years',
-            closingIn: '2 DAYS',
-            logo: 'https://www.google.com/favicon.ico',
-            tag: 'CLOSING SOON'
-        },
-        {
-            company: 'Microsoft',
-            role: 'Product Management Intern',
-            location: 'Hyderabad',
-            stipend: '85,000 / mo',
-            duration: '6 Months',
-            tag: 'TOP RECOMMENDATION',
-            logo: 'https://www.microsoft.com/favicon.ico'
-        }
-    ];
+    const jobDrives = jobs.map(job => ({
+        company: job.company?.name || job.company || 'Company',
+        role: job.title,
+        location: job.location,
+        package: job.ctc ? `₹${job.ctc} LPA` : 'Not Disclosed',
+        experience: job.experience || '0-1 Years',
+        tag: 'NEW OPPORTUNITY',
+        logo: (job.company?.name || job.company || 'C')[0].toUpperCase(),
+        _id: job._id
+    }));
 
-    const updates = [
-        { status: 'Selected for Technical Round at Adobe', context: 'Experience Design Intern Role', time: '2 hours ago', icon: CheckCircle2, iconColor: 'text-green-500', bgColor: 'bg-green-50' },
-        { status: 'Application Submitted to Amazon', context: 'SDE-1 New Grad Role', time: 'Yesterday, 4:30 PM', icon: Send, iconColor: 'text-blue-500', bgColor: 'bg-blue-50' },
-        { status: 'Resume Updated', context: 'Version 4.2: Tech Stack Revised', time: 'Mar 12, 2024', icon: FileText, iconColor: 'text-slate-500', bgColor: 'bg-slate-50' }
-    ];
+    const updates = applications.slice(0, 3).map(app => ({
+        status: `Application for ${app.job?.title || 'Job'}`,
+        context: `Status: ${app.status.toUpperCase()}`,
+        time: new Date(app.appliedAt).toLocaleDateString(),
+        icon: app.status === 'accepted' ? CheckCircle2 : (app.status === 'rejected' ? ArrowLeft : Clock),
+        iconColor: app.status === 'accepted' ? 'text-green-500' : 'text-blue-500',
+        bgColor: app.status === 'accepted' ? 'bg-green-50' : 'bg-blue-50'
+    }));
 
     return (
         <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden">
@@ -118,7 +134,16 @@ const StudentDashboard = () => {
                             <p className="text-sm font-black text-slate-900 leading-none truncate">{fullName}</p>
                             <p className="text-[10px] text-slate-400 mt-1 truncate">{email}</p>
                         </div>
-                        <ExternalLink size={16} className="text-slate-400 ml-auto shrink-0" />
+                        <button
+                            onClick={() => {
+                                localStorage.clear();
+                                navigate('/login');
+                            }}
+                            className="p-2 text-slate-400 hover:text-red-500 ml-auto transition-colors"
+                            title="Logout"
+                        >
+                            <LogOut size={18} />
+                        </button>
                     </div>
 
                     <div className="bg-indigo-50/50 rounded-3xl p-6 border border-indigo-100">
@@ -279,7 +304,18 @@ const StudentDashboard = () => {
                                                     </div>
                                                 </div>
 
-                                                <button className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-slate-800 transition-all active:scale-95">
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            await api.post(`/jobs/${job._id}/apply`);
+                                                            alert('Successfully applied!');
+                                                            window.location.reload(); // Quick refresh to update stats
+                                                        } catch (err) {
+                                                            alert(err.response?.data?.message || 'Failed to apply');
+                                                        }
+                                                    }}
+                                                    className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-slate-800 transition-all active:scale-95"
+                                                >
                                                     Apply Now
                                                 </button>
                                             </div>

@@ -30,6 +30,8 @@ import StudentResources from './components/StudentResources';
 import StudentCertifications from './components/StudentCertifications';
 import StudentOfferDetails from './components/StudentOfferDetails';
 import RecruiterRegistrationSuccess from './components/RecruiterRegistrationSuccess';
+import RecruiterDashboard from './components/RecruiterDashboard';
+import AdminDashboard from './components/AdminDashboard';
 
 
 
@@ -202,6 +204,14 @@ function App() {
         <Route
           path="/recruiter/registration-success"
           element={<RecruiterRegistrationSuccess />}
+        />
+        <Route
+          path="/recruiter/dashboard"
+          element={<RecruiterDashboard />}
+        />
+        <Route
+          path="/admin/dashboard"
+          element={<AdminDashboard />}
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

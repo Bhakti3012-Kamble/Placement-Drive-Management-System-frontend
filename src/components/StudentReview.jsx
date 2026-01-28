@@ -1,10 +1,13 @@
-import React from 'react';
-import { User, FileText, Lock, ArrowLeft, CheckCircle, Edit, FileKey, Shield, Send } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, FileText, Lock, ArrowLeft, CheckCircle, Edit, FileKey, Shield, Send, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
 const StudentReview = () => {
     const navigate = useNavigate();
     const [allData, setAllData] = React.useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
     React.useEffect(() => {
         const savedData = localStorage.getItem('studentRegistrationData');
@@ -13,14 +16,52 @@ const StudentReview = () => {
         }
     }, []);
 
-    const handleSubmit = () => {
-        // Here you would typically send data to backend
-        console.log('Submitting data:', allData);
-        // Persist data for the profile page before clearing registration state
-        localStorage.setItem('studentProfileData', JSON.stringify(allData));
-        // Clear registration flow data
-        localStorage.removeItem('studentRegistrationData');
-        navigate('/register/student/success');
+    const handleSubmit = async () => {
+        setLoading(true);
+        setError(null);
+
+        try {
+            const { personal, academic, documents } = allData;
+
+            // 1. Register the user
+            const authRes = await api.post('/auth/register', {
+                name: personal.fullName,
+                email: personal.email,
+                password: documents.password || 'password123', // Default if missing, though should be caught by validation
+                role: 'student'
+            });
+
+            // 2. Store token for subsequent requests
+            localStorage.setItem('token', authRes.data.token);
+            localStorage.setItem('user', JSON.stringify(authRes.data.user));
+
+            // 3. Update/Create Student Profile
+            await api.put('/students/me', {
+                rollNo: academic.rollNumber,
+                branch: academic.branch,
+                cgpa: academic.cgpa
+            });
+
+            // 4. Persistence for local state and clearing flow data
+            localStorage.setItem('studentProfileData', JSON.stringify(allData));
+            localStorage.removeItem('studentRegistrationData');
+
+            navigate('/register/student/success');
+        } catch (err) {
+            let message = 'Registration failed. Please try again.';
+
+            if (!err.response) {
+                // Network error (no response received)
+                message = 'Server unreachable. Please ensure the backend is running.';
+            } else {
+                message = err.response.data?.message || message;
+            }
+
+            setError(message);
+            console.error('Registration Error:', err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     if (!allData) {
@@ -202,6 +243,13 @@ const StudentReview = () => {
                     </label>
                 </div>
 
+                {/* Error Message */}
+                {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-xl text-sm font-medium">
+                        {error}
+                    </div>
+                )}
+
                 {/* Footer Controls */}
                 <div className="flex justify-between items-center pt-8 pb-12">
                     <Link
@@ -213,9 +261,18 @@ const StudentReview = () => {
 
                     <button
                         onClick={handleSubmit}
-                        className="px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 hover:-translate-y-1 transition-all flex items-center gap-2"
+                        disabled={loading}
+                        className="px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 hover:-translate-y-1 transition-all flex items-center gap-2 disabled:opacity-70 disabled:translate-y-0"
                     >
-                        Confirm & Submit Application <Send size={18} />
+                        {loading ? (
+                            <>
+                                <Loader2 size={18} className="animate-spin" /> Processing...
+                            </>
+                        ) : (
+                            <>
+                                Confirm & Submit Application <Send size={18} />
+                            </>
+                        )}
                     </button>
                 </div>
 

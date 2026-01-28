@@ -8,13 +8,34 @@ const Navbar = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
+    const [user, setUser] = useState(null);
+
     useEffect(() => {
         const handleScroll = () => {
             setScrolled(window.scrollY > 20);
         };
+        const checkAuth = () => {
+            const savedUser = localStorage.getItem('user');
+            if (savedUser) {
+                setUser(JSON.parse(savedUser));
+            } else {
+                setUser(null);
+            }
+        };
+        checkAuth();
         window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
+        window.addEventListener('storage', checkAuth); // Listen for login/logout in other tabs
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('storage', checkAuth);
+        };
     }, []);
+
+    const handleLogout = () => {
+        localStorage.clear();
+        setUser(null);
+        navigate('/login');
+    };
 
     const scrollToTop = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -63,12 +84,31 @@ const Navbar = () => {
 
                     {/* Auth Buttons */}
                     <div className="hidden md:flex items-center space-x-4">
-                        <Link to="/login" className="text-slate-600 hover:text-slate-900 font-semibold text-sm px-4 py-2 transition-colors">
-                            Log in
-                        </Link>
-                        <Link to="/register" className="bg-slate-900 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-full font-semibold text-sm transition-all shadow-lg hover:shadow-indigo-500/25 active:scale-95">
-                            Register Now
-                        </Link>
+                        {user ? (
+                            <>
+                                <Link
+                                    to={`/${user.role === 'company' ? 'recruiter' : user.role}/dashboard`}
+                                    className="text-slate-600 hover:text-indigo-600 font-semibold text-sm px-4 py-2 transition-colors"
+                                >
+                                    Dashboard
+                                </Link>
+                                <button
+                                    onClick={handleLogout}
+                                    className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2.5 rounded-full font-semibold text-sm transition-all shadow-lg active:scale-95"
+                                >
+                                    Log out
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <Link to="/login" className="text-slate-600 hover:text-slate-900 font-semibold text-sm px-4 py-2 transition-colors">
+                                    Log in
+                                </Link>
+                                <Link to="/register" className="bg-slate-900 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-full font-semibold text-sm transition-all shadow-lg hover:shadow-indigo-500/25 active:scale-95">
+                                    Register Now
+                                </Link>
+                            </>
+                        )}
                     </div>
 
                     {/* Mobile Menu Button */}

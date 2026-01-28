@@ -1,10 +1,78 @@
-import React, { useState } from 'react';
-import { Building, User, Mail, Globe, ArrowLeft, ArrowRight, CheckCircle2, Shield, Lock, FileText, Upload, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Building, User, Mail, Globe, ArrowLeft, ArrowRight, CheckCircle2, Shield, Lock, FileText, Upload, Plus, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
 const RecruiterRegistration = () => {
     const navigate = useNavigate();
     const [step, setStep] = useState(1);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    const [formData, setFormData] = useState({
+        companyName: '',
+        website: '',
+        industry: '',
+        address: '',
+        fullName: '',
+        designation: '',
+        email: '',
+        phone: '',
+        password: '',
+        confirmPassword: '',
+        agreed: false
+    });
+
+    useEffect(() => {
+        const savedData = localStorage.getItem('recruiterRegProcess');
+        if (savedData) {
+            setFormData(prev => ({ ...prev, ...JSON.parse(savedData) }));
+        }
+    }, []);
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        const updatedData = {
+            ...formData,
+            [name]: type === 'checkbox' ? checked : value
+        };
+        setFormData(updatedData);
+        localStorage.setItem('recruiterRegProcess', JSON.stringify(updatedData));
+    };
+
+    const handleSubmit = async () => {
+        if (!formData.agreed) {
+            setError('Please agree to the Terms and Conditions');
+            return;
+        }
+
+        if (formData.password !== formData.confirmPassword) {
+            setError('Passwords do not match');
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+
+        try {
+            const res = await api.post('/auth/register', {
+                name: formData.fullName,
+                email: formData.email,
+                password: formData.password,
+                role: 'company'
+            });
+
+            localStorage.setItem('token', res.data.token);
+            localStorage.setItem('user', JSON.stringify(res.data.user));
+            localStorage.removeItem('recruiterRegProcess');
+
+            navigate('/recruiter/registration-success');
+        } catch (err) {
+            setError(err.response?.data?.message || 'Registration failed. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Sidebar Step Item Component
     const StepItem = ({ number, title, icon: Icon }) => {
@@ -41,21 +109,40 @@ const RecruiterRegistration = () => {
                 <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700">Company Name</label>
                     <div className="relative">
-                        <input type="text" placeholder="e.g. TechCorp Solutions" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium" />
+                        <input
+                            type="text"
+                            name="companyName"
+                            value={formData.companyName}
+                            onChange={handleChange}
+                            placeholder="e.g. TechCorp Solutions"
+                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                        />
                         <Building size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     </div>
                 </div>
                 <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700">Company Website</label>
                     <div className="relative">
-                        <input type="url" placeholder="https://example.com" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium" />
+                        <input
+                            type="url"
+                            name="website"
+                            value={formData.website}
+                            onChange={handleChange}
+                            placeholder="https://example.com"
+                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                        />
                         <Globe size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     </div>
                 </div>
             </div>
             <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700">Industry Sector</label>
-                <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium cursor-pointer">
+                <select
+                    name="industry"
+                    value={formData.industry}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium cursor-pointer"
+                >
                     <option value="">Select Industry</option>
                     <option value="it">Information Technology</option>
                     <option value="finance">FinTech</option>
@@ -65,7 +152,14 @@ const RecruiterRegistration = () => {
             </div>
             <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700">Headquarters Address</label>
-                <textarea rows="3" placeholder="Enter full office address" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium resize-none"></textarea>
+                <textarea
+                    rows="3"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    placeholder="Enter full office address"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium resize-none"
+                ></textarea>
             </div>
         </form>
     );
@@ -81,19 +175,40 @@ const RecruiterRegistration = () => {
                 <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700">Full Name</label>
                     <div className="relative">
-                        <input type="text" placeholder="e.g. John Doe" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium" />
+                        <input
+                            type="text"
+                            name="fullName"
+                            value={formData.fullName}
+                            onChange={handleChange}
+                            placeholder="e.g. John Doe"
+                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                        />
                         <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     </div>
                 </div>
                 <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700">Job Title/Designation</label>
-                    <input type="text" placeholder="e.g. Talent Acquisition Manager" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium" />
+                    <input
+                        type="text"
+                        name="designation"
+                        value={formData.designation}
+                        onChange={handleChange}
+                        placeholder="e.g. Talent Acquisition Manager"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                    />
                 </div>
             </div>
             <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700">Official Email Address</label>
                 <div className="relative">
-                    <input type="email" placeholder="john.doe@company.com" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium" />
+                    <input
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        placeholder="john.doe@company.com"
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                    />
                     <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 </div>
                 <div className="bg-blue-50 text-blue-700 text-xs p-3 rounded-lg border border-blue-100 flex items-start gap-2 mt-2">
@@ -103,7 +218,14 @@ const RecruiterRegistration = () => {
             </div>
             <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700">Work Phone Number</label>
-                <input type="tel" placeholder="+1 (555) 000-0000" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium" />
+                <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder="+1 (555) 000-0000"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                />
             </div>
         </form>
     );
@@ -166,7 +288,14 @@ const RecruiterRegistration = () => {
             <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700">Create Password</label>
                 <div className="relative">
-                    <input type="password" placeholder="••••••••" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium" />
+                    <input
+                        type="password"
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        placeholder="••••••••"
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                    />
                     <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 </div>
                 {/* Strength Meter */}
@@ -184,13 +313,26 @@ const RecruiterRegistration = () => {
             <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700">Confirm Password</label>
                 <div className="relative">
-                    <input type="password" placeholder="••••••••" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium" />
+                    <input
+                        type="password"
+                        name="confirmPassword"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        placeholder="••••••••"
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium"
+                    />
                     <CheckCircle2 size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 </div>
             </div>
 
             <label className="flex items-start gap-3 p-4 border border-slate-200 rounded-xl bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors">
-                <input type="checkbox" className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-blue-500" />
+                <input
+                    type="checkbox"
+                    name="agreed"
+                    checked={formData.agreed}
+                    onChange={handleChange}
+                    className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
                 <span className="text-sm text-slate-600 leading-relaxed">
                     I agree to the <span className="font-bold text-blue-600 hover:underline">Terms of Service</span> and <span className="font-bold text-blue-600 hover:underline">Privacy Policy</span>. I understand that my account will be subject to verification.
                 </span>
@@ -260,6 +402,13 @@ const RecruiterRegistration = () => {
                             </div>
                         </div>
 
+                        {/* Error Message */}
+                        {error && (
+                            <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-medium animate-shake">
+                                {error}
+                            </div>
+                        )}
+
                         {/* Render Active Step */}
                         <div className="animate-fade-in">
                             {step === 1 && renderStep1()}
@@ -297,13 +446,23 @@ const RecruiterRegistration = () => {
                                     <ArrowRight size={18} className="ml-2" />
                                 </button>
                             ) : (
-                                <Link
-                                    to="/recruiter/registration-success"
-                                    className="flex items-center px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg shadow-blue-500/30 transition-all hover:scale-105 active:scale-95"
+                                <button
+                                    onClick={handleSubmit}
+                                    disabled={loading}
+                                    className="flex items-center px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg shadow-blue-500/30 transition-all hover:scale-105 active:scale-95 disabled:opacity-70"
                                 >
-                                    Complete Registration
-                                    <CheckCircle2 size={18} className="ml-2" />
-                                </Link>
+                                    {loading ? (
+                                        <>
+                                            <Loader2 size={18} className="mr-2 animate-spin" />
+                                            Processing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Complete Registration
+                                            <CheckCircle2 size={18} className="ml-2" />
+                                        </>
+                                    )}
+                                </button>
                             )}
                         </div>
                     </div>
