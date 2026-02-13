@@ -30,8 +30,11 @@ import StudentResources from './components/StudentResources';
 import StudentCertifications from './components/StudentCertifications';
 import StudentOfferDetails from './components/StudentOfferDetails';
 import RecruiterRegistrationSuccess from './components/RecruiterRegistrationSuccess';
+import AdminRegistrationSuccess from './components/AdminRegistrationSuccess';
 import RecruiterDashboard from './components/RecruiterDashboard';
 import AdminDashboard from './components/AdminDashboard';
+import JobPostForm from './components/JobPostForm';
+import RecruiterJobApplications from './components/RecruiterJobApplications';
 
 
 
@@ -202,12 +205,24 @@ function App() {
         />
 
         <Route
+          path="/admin/registration-success"
+          element={<AdminRegistrationSuccess />}
+        />
+        <Route
           path="/recruiter/registration-success"
           element={<RecruiterRegistrationSuccess />}
         />
         <Route
           path="/recruiter/dashboard"
           element={<RecruiterDashboard />}
+        />
+        <Route
+          path="/recruiter/post-job"
+          element={<JobPostForm />}
+        />
+        <Route
+          path="/recruiter/jobs/:jobId/applications"
+          element={<RecruiterJobApplications />}
         />
         <Route
           path="/admin/dashboard"

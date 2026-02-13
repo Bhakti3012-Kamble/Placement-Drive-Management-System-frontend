@@ -53,9 +53,13 @@ const AdminRegistration = () => {
             localStorage.setItem('token', res.data.token);
             localStorage.setItem('user', JSON.stringify(res.data.user));
 
-            navigate('/register/student/success'); // Reuse success page or create new one
+            navigate('/admin/registration-success');
         } catch (err) {
-            setError(err.response?.data?.message || 'Registration failed. Please try again.');
+            const errorMsg = err.response?.data?.error ||
+                err.response?.data?.errors?.[0]?.message ||
+                err.response?.data?.message ||
+                'Registration failed. Please try again.';
+            setError(errorMsg);
         } finally {
             setLoading(false);
         }

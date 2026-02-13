@@ -5,14 +5,14 @@ const Features = () => {
     return (
         <section id="features" className="py-24 bg-slate-50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="mb-20 text-center lg:text-left">
+                <div className="mb-12 lg:mb-20 text-center lg:text-left">
                     <span className="inline-block py-1 px-3 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold tracking-widest uppercase mb-4">
                         The Evolution
                     </span>
-                    <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6 max-w-2xl">
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 mb-6 max-w-2xl">
                         From Manual to <span className="text-indigo-600">Automated Excellence</span>
                     </h2>
-                    <p className="text-slate-600 max-w-xl text-lg leading-relaxed">
+                    <p className="text-slate-600 max-w-xl text-base sm:text-lg leading-relaxed">
                         Our system digitizes the entire placement lifecycle, ensuring data accuracy and reducing administrative overhead for educational institutions.
                     </p>
                 </div>

@@ -8,6 +8,11 @@ const StudentReview = () => {
     const [allData, setAllData] = React.useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [files, setFiles] = useState({
+        resume: null,
+        profilePic: null,
+        transcript: null
+    });
 
     React.useEffect(() => {
         const savedData = localStorage.getItem('studentRegistrationData');
@@ -15,6 +20,15 @@ const StudentReview = () => {
             setAllData(JSON.parse(savedData));
         }
     }, []);
+
+    const handleFileChange = (e, type) => {
+        if (e.target.files && e.target.files[0]) {
+            setFiles(prev => ({
+                ...prev,
+                [type]: e.target.files[0]
+            }));
+        }
+    };
 
     const handleSubmit = async () => {
         setLoading(true);
@@ -27,7 +41,7 @@ const StudentReview = () => {
             const authRes = await api.post('/auth/register', {
                 name: personal.fullName,
                 email: personal.email,
-                password: documents.password || 'password123', // Default if missing, though should be caught by validation
+                password: documents.password || 'password123',
                 role: 'student'
             });
 
@@ -39,10 +53,29 @@ const StudentReview = () => {
             await api.put('/students/me', {
                 rollNo: academic.rollNumber,
                 branch: academic.branch,
-                cgpa: academic.cgpa
+                cgpa: academic.cgpa,
+                university: academic.university,
+                graduationYear: academic.graduationYear,
+                semester: academic.semester || 1, // Fallback if not provided
+                phone: personal.phone,
+                dob: personal.dob
             });
 
-            // 4. Persistence for local state and clearing flow data
+            // 4. Upload Documents
+            const formData = new FormData();
+            if (files.resume) formData.append('resume', files.resume);
+            if (files.profilePic) formData.append('profilePic', files.profilePic);
+            if (files.transcript) formData.append('transcript', files.transcript);
+
+            if (formData.entries().next().value) { // Check if any files are appended
+                await api.put('/students/documents', formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+            }
+
+            // 5. Persistence for local state and clearing flow data
             localStorage.setItem('studentProfileData', JSON.stringify(allData));
             localStorage.removeItem('studentRegistrationData');
 
@@ -51,10 +84,14 @@ const StudentReview = () => {
             let message = 'Registration failed. Please try again.';
 
             if (!err.response) {
-                // Network error (no response received)
+                // Network error
                 message = 'Server unreachable. Please ensure the backend is running.';
             } else {
-                message = err.response.data?.message || message;
+                if (err.response.data?.errors && Array.isArray(err.response.data.errors)) {
+                    message = err.response.data.errors.map(e => e.message || e.msg).join('. ');
+                } else {
+                    message = err.response.data?.message || err.response.data?.error || message;
+                }
             }
 
             setError(message);
@@ -84,10 +121,10 @@ const StudentReview = () => {
             {/* Header Content */}
             <div className="text-center mb-12">
                 <h1 className="text-3xl font-bold text-slate-900 mb-2">Review Your Registration</h1>
-                <p className="text-slate-500">Please check your details carefully before submitting your application.</p>
+                <p className="text-slate-500">Please check your details carefully and upload your documents.</p>
             </div>
 
-            {/* Stepper */}
+            {/* Stepper omitted for brevity, same as before */}
             <div className="max-w-4xl mx-auto mb-12">
                 <div className="flex items-center justify-between relative">
                     {/* Step 1 */}
@@ -196,38 +233,52 @@ const StudentReview = () => {
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                         <h2 className="font-bold text-slate-800 flex items-center gap-2">
-                            <FileKey size={18} className="text-indigo-600" /> Uploaded Documents
+                            <FileKey size={18} className="text-indigo-600" /> Upload Documents (Required)
                         </h2>
-                        <Link to="/register/student/documents" className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
-                            <Edit size={14} /> Edit
-                        </Link>
                     </div>
-                    <div className="p-6 grid md:grid-cols-3 gap-4">
-                        <div className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 bg-slate-50/50">
-                            <div className={`w-10 h-10 rounded-lg ${documents?.resume ? 'bg-green-50 text-green-500' : 'bg-slate-50 text-slate-400'} flex items-center justify-center shrink-0`}>
+                    <div className="p-6 space-y-4">
+                        <div className="flex items-center gap-4 p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50">
+                            <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center shrink-0">
                                 <FileText size={20} />
                             </div>
-                            <div className="min-w-0">
-                                <p className="text-sm font-bold text-slate-700 truncate">{documents?.resume || ''}</p>
-                                <p className="text-[10px] text-slate-400">PDF</p>
+                            <div className="flex-1">
+                                <label className="text-sm font-bold text-slate-700 block mb-1">Resume (PDF)</label>
+                                <input
+                                    type="file"
+                                    accept=".pdf"
+                                    onChange={(e) => handleFileChange(e, 'resume')}
+                                    className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                />
                             </div>
                         </div>
-                        <div className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 bg-slate-50/50">
-                            <div className={`w-10 h-10 rounded-lg ${documents?.profilePic ? 'bg-green-50 text-green-500' : 'bg-slate-50 text-slate-400'} flex items-center justify-center shrink-0`}>
+
+                        <div className="flex items-center gap-4 p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50">
+                            <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center shrink-0">
                                 <User size={20} />
                             </div>
-                            <div className="min-w-0">
-                                <p className="text-sm font-bold text-slate-700 truncate">{documents?.profilePic || ''}</p>
-                                <p className="text-[10px] text-slate-400">JPG/PNG</p>
+                            <div className="flex-1">
+                                <label className="text-sm font-bold text-slate-700 block mb-1">Profile Picture (Image)</label>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => handleFileChange(e, 'profilePic')}
+                                    className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                />
                             </div>
                         </div>
-                        <div className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 bg-slate-50/50">
-                            <div className={`w-10 h-10 rounded-lg ${documents?.transcript ? 'bg-green-50 text-green-500' : 'bg-slate-50 text-slate-400'} flex items-center justify-center shrink-0`}>
+
+                        <div className="flex items-center gap-4 p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50">
+                            <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center shrink-0">
                                 <Shield size={20} />
                             </div>
-                            <div className="min-w-0">
-                                <p className="text-sm font-bold text-slate-700 truncate">{documents?.transcript || ''}</p>
-                                <p className="text-[10px] text-slate-400">PDF</p>
+                            <div className="flex-1">
+                                <label className="text-sm font-bold text-slate-700 block mb-1">Transcript (PDF)</label>
+                                <input
+                                    type="file"
+                                    accept=".pdf"
+                                    onChange={(e) => handleFileChange(e, 'transcript')}
+                                    className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                />
                             </div>
                         </div>
                     </div>

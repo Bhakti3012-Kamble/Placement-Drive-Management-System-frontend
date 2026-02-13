@@ -1,39 +1,70 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Home, User, Briefcase, Layout, Calendar,
     BookOpen, Search, Bell, Download, Filter,
     MoreHorizontal, ChevronRight, Settings,
     Trash2, ExternalLink, ArrowLeft, CheckCircle2,
-    Clock, Building2, TrendingUp, Lightbulb
+    Clock, Building2, TrendingUp, Lightbulb, LogOut
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
 const StudentApplications = () => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('All Applications');
     const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
     const [profile, setProfile] = useState(null);
 
-    React.useEffect(() => {
+    const selectedCount = applications.filter(a => a.rawStatus === 'accepted').length;
+    const pendingCount = applications.filter(a => ['applied', 'shortlisted'].indexOf(a.rawStatus) !== -1).length;
+    const shortlistRate = applications.length > 0
+        ? Math.round((applications.filter(a => ['shortlisted', 'accepted'].includes(a.rawStatus)).length / applications.length) * 100)
+        : 0;
+
+    useEffect(() => {
         const fetchApplications = async () => {
             try {
                 const res = await api.get('/students/me');
                 setProfile(res.data.data);
                 const apps = res.data.data.applications || [];
-                setApplications(apps.map(app => ({
-                    id: app._id,
-                    jobId: app.job?._id,
-                    company: app.job?.company?.name || app.job?.company || 'Company',
-                    role: app.job?.title || 'Applied Position',
-                    date: new Date(app.appliedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-                    status: app.status.charAt(0) ? app.status.split(' ').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ') : app.status,
-                    statusColor: app.status === 'accepted' ? 'bg-green-100 text-green-700' :
-                        app.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                            app.status === 'shortlisted' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700',
-                    logo: (app.job?.company?.name || app.job?.company || 'C')[0].toUpperCase(),
-                    logoBg: 'bg-slate-100 text-slate-600'
-                })));
+
+                const formattedApps = apps.map(app => {
+                    const status = app.status || 'applied';
+                    let statusColor = 'bg-blue-100 text-blue-700';
+                    let statusLabel = 'Applied';
+
+                    if (status === 'accepted') {
+                        statusColor = 'bg-green-100 text-green-700';
+                        statusLabel = 'Selected';
+                    } else if (status === 'rejected') {
+                        statusColor = 'bg-red-100 text-red-700';
+                        statusLabel = 'Rejected';
+                    } else if (status === 'shortlisted') {
+                        statusColor = 'bg-indigo-100 text-indigo-700';
+                        statusLabel = 'Shortlisted';
+                    }
+
+                    // Safely extract company name
+                    const companyName = app.job?.company?.name ||
+                        (typeof app.job?.company === 'string' ? app.job.company : 'Unknown Company');
+
+                    return {
+                        id: app._id,
+                        jobId: app.job?._id,
+                        company: companyName,
+                        role: app.job?.title || 'Applied Position',
+                        date: new Date(app.appliedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                        status: statusLabel,
+                        statusColor,
+                        logo: companyName[0].toUpperCase(),
+                        logoBg: 'bg-slate-100 text-slate-600',
+                        rawStatus: status
+                    };
+                });
+
+                setApplications(formattedApps);
             } catch (err) {
                 console.error('Error fetching applications:', err);
                 if (err.response?.status === 401) navigate('/login');
@@ -44,6 +75,40 @@ const StudentApplications = () => {
 
         fetchApplications();
     }, [navigate]);
+
+    const exportToCSV = () => {
+        if (applications.length === 0) {
+            alert('No applications to export');
+            return;
+        }
+
+        const headers = ['Company', 'Role', 'Applied Date', 'Status'];
+        const csvData = applications.map(app => [
+            app.company,
+            app.role,
+            app.date,
+            app.status
+        ]);
+
+        const csvContent = [
+            headers.join(','),
+            ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `applications_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleViewCalendar = () => {
+        navigate('/student/interview-schedule');
+    };
 
     if (loading) {
         return <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -112,7 +177,7 @@ const StudentApplications = () => {
                 </nav>
 
                 <div className="p-6">
-                    <div className="flex items-center gap-4 pl-2">
+                    <div className="flex items-center gap-4 pl-2 mb-4">
                         <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
                             {fullName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                         </div>
@@ -120,7 +185,24 @@ const StudentApplications = () => {
                             <p className="text-sm font-black text-slate-900 leading-none truncate">{fullName}</p>
                             <p className="text-[10px] text-slate-400 mt-1 truncate">{email}</p>
                         </div>
-                        <ExternalLink size={16} className="text-slate-400 ml-auto shrink-0" />
+                        <button
+                            onClick={() => {
+                                localStorage.clear();
+                                navigate('/login');
+                            }}
+                            className="p-2 text-slate-400 hover:text-red-500 ml-auto transition-colors"
+                            title="Logout"
+                        >
+                            <LogOut size={18} />
+                        </button>
+                    </div>
+
+                    <div className="bg-indigo-50/50 rounded-3xl p-6 border border-indigo-100">
+                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Placement Help</p>
+                        <p className="text-xs font-bold text-slate-600 mb-4 leading-relaxed">Need assistance with your applications?</p>
+                        <button className="w-full py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-tighter hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
+                            Contact TPO
+                        </button>
                     </div>
                 </div>
             </aside>
@@ -138,11 +220,16 @@ const StudentApplications = () => {
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                             <input
                                 type="text"
-                                placeholder="Search applications..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder="Search by company or role..."
                                 className="pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 w-64 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                         </div>
-                        <button className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-xl text-slate-700 font-bold text-sm hover:bg-slate-50 hover:text-indigo-600 transition-all">
+                        <button
+                            onClick={exportToCSV}
+                            className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-xl text-slate-700 font-bold text-sm hover:bg-slate-50 hover:text-indigo-600 transition-all"
+                        >
                             <Download size={18} /> Export History
                         </button>
                     </div>
@@ -155,14 +242,19 @@ const StudentApplications = () => {
                         <div className="flex-1 space-y-6">
                             {/* Tabs */}
                             <div className="flex items-center gap-8 border-b border-slate-200 pb-1">
-                                {['All Applications (12)', 'Active (5)', 'Selected (2)', 'Rejected (5)'].map((tab, idx) => (
+                                {[
+                                    { label: 'All Applications', count: applications.length },
+                                    { label: 'Active', count: applications.filter(a => ['applied', 'shortlisted'].includes(a.rawStatus)).length },
+                                    { label: 'Selected', count: selectedCount },
+                                    { label: 'Rejected', count: applications.filter(a => a.rawStatus === 'rejected').length }
+                                ].map((tab) => (
                                     <button
-                                        key={tab}
-                                        onClick={() => setActiveTab(tab)}
-                                        className={`pb-4 text-sm font-bold relative transition-colors ${idx === 0 ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                                        key={tab.label}
+                                        onClick={() => setActiveTab(tab.label)}
+                                        className={`pb-4 text-sm font-bold relative transition-colors ${activeTab === tab.label ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
                                     >
-                                        {tab}
-                                        {idx === 0 && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-t-full"></div>}
+                                        {tab.label} ({tab.count})
+                                        {activeTab === tab.label && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-t-full"></div>}
                                     </button>
                                 ))}
                             </div>
@@ -177,54 +269,72 @@ const StudentApplications = () => {
 
                             {/* List Items */}
                             <div className="space-y-4">
-                                {applications.map(app => (
-                                    <div key={app.id} className="grid grid-cols-12 gap-4 items-center p-6 bg-white border border-slate-200 rounded-2xl hover:shadow-md hover:border-indigo-100 transition-all group">
-                                        <div className="col-span-5 flex items-center gap-4">
-                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg ${app.logoBg}`}>
-                                                {app.logo}
+                                {applications
+                                    .filter(app => {
+                                        const matchesSearch = app.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                            app.role.toLowerCase().includes(searchTerm.toLowerCase());
+                                        if (!matchesSearch) return false;
+
+                                        if (activeTab === 'All Applications') return true;
+                                        if (activeTab === 'Active') return ['applied', 'shortlisted'].includes(app.rawStatus);
+                                        if (activeTab === 'Selected') return app.rawStatus === 'accepted';
+                                        if (activeTab === 'Rejected') return app.rawStatus === 'rejected';
+                                        return true;
+                                    })
+                                    .map(app => (
+                                        <div key={app.id} className="grid grid-cols-12 gap-4 items-center p-6 bg-white border border-slate-200 rounded-2xl hover:shadow-md hover:border-indigo-100 transition-all group">
+                                            <div className="col-span-5 flex items-center gap-4">
+                                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg ${app.logoBg}`}>
+                                                    {app.logo}
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-bold text-slate-900 text-sm leading-tight mb-0.5">{app.company}</h4>
+                                                    <p className="text-xs font-medium text-slate-500">{app.role}</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <h4 className="font-bold text-slate-900 text-sm leading-tight mb-0.5">{app.company}</h4>
-                                                <p className="text-xs font-medium text-slate-500">{app.role}</p>
+                                            <div className="col-span-2 text-sm font-bold text-slate-600">
+                                                {app.date}
+                                                <p className="text-[10px] font-medium text-slate-400 mt-0.5">{new Date(app.date).getFullYear()}</p>
+                                            </div>
+                                            <div className="col-span-3">
+                                                <span className={`px-3 py-1.5 rounded-full text-xs font-bold inline-flex items-center gap-1.5 ${app.statusColor}`}>
+                                                    {app.rawStatus === 'applied' && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>}
+                                                    {app.status}
+                                                </span>
+                                            </div>
+                                            <div className="col-span-2 flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={() => {
+                                                        if (app.jobId) {
+                                                            navigate(`/student/applications/offer/${app.jobId}`);
+                                                        }
+                                                    }}
+                                                    className="px-4 py-2 bg-slate-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-50 transition-colors"
+                                                >
+                                                    View Details
+                                                </button>
+                                                <button className="p-2 text-slate-300 hover:text-red-500 transition-colors">
+                                                    <Trash2 size={16} />
+                                                </button>
                                             </div>
                                         </div>
-                                        <div className="col-span-2 text-sm font-bold text-slate-600">
-                                            {app.date}
-                                            <p className="text-[10px] font-medium text-slate-400 mt-0.5">2024</p>
-                                        </div>
-                                        <div className="col-span-3">
-                                            <span className={`px-3 py-1.5 rounded-full text-xs font-bold inline-flex items-center gap-1.5 ${app.statusColor}`}>
-                                                {app.status === 'In Progress' && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>}
-                                                {app.status}
-                                            </span>
-                                        </div>
-                                        <div className="col-span-2 flex items-center justify-end gap-2">
-                                            <button
-                                                onClick={() => {
-                                                    if (app.id === 2) {
-                                                        navigate('/student/applications/offer/2');
-                                                    }
-                                                }}
-                                                className="px-4 py-2 bg-slate-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-50 transition-colors"
-                                            >
-                                                View Details
-                                            </button>
-                                            <button className="p-2 text-slate-300 hover:text-red-500 transition-colors">
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
+                                    ))}
+                                {applications.length === 0 && (
+                                    <div className="text-center py-20 bg-white rounded-3xl border border-slate-200 border-dashed">
+                                        <p className="text-slate-400 font-bold">No applications found.</p>
+                                        <Link to="/student/job-drives" className="mt-4 inline-block text-indigo-600 font-bold hover:underline">Browse Job Drives</Link>
                                     </div>
-                                ))}
+                                )}
                             </div>
 
                             {/* Pagination */}
                             <div className="flex items-center justify-between pt-4">
-                                <p className="text-xs font-bold text-slate-400">Showing 1-4 of 12 Applications</p>
+                                <p className="text-xs font-bold text-slate-400">Showing {applications.length} Applications</p>
                                 <div className="flex gap-2">
-                                    <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-white hover:text-indigo-600 transition-all">
+                                    <button disabled className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-white hover:text-indigo-600 transition-all opacity-50">
                                         <ChevronRight size={16} className="rotate-180" />
                                     </button>
-                                    <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-white hover:text-indigo-600 transition-all">
+                                    <button disabled className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-white hover:text-indigo-600 transition-all opacity-50">
                                         <ChevronRight size={16} />
                                     </button>
                                 </div>
@@ -241,23 +351,23 @@ const StudentApplications = () => {
                                 <div className="bg-[#F8FAFC] rounded-2xl p-4 border border-slate-100 mb-6 relative overflow-hidden">
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Shortlist Rate</p>
                                     <div className="flex items-end justify-between relative z-10">
-                                        <span className="text-3xl font-black text-indigo-600">64%</span>
+                                        <span className="text-3xl font-black text-indigo-600">{shortlistRate}%</span>
                                         <span className="text-xs font-bold text-green-500 mb-1 flex items-center gap-0.5">
-                                            <TrendingUp size={12} /> +12%
+                                            <TrendingUp size={12} /> {shortlistRate > 0 ? '+5%' : '0%'}
                                         </span>
                                     </div>
                                     <div className="h-1.5 w-full bg-slate-200 rounded-full mt-3 overflow-hidden">
-                                        <div className="h-full w-[64%] bg-indigo-500 rounded-full"></div>
+                                        <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${shortlistRate}%` }}></div>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="bg-[#F8FAFC] rounded-2xl p-3 border border-slate-100">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Selected</p>
-                                        <p className="text-xl font-black text-slate-900">02</p>
+                                        <p className="text-xl font-black text-slate-900">{selectedCount < 10 ? `0${selectedCount}` : selectedCount}</p>
                                     </div>
                                     <div className="bg-[#F8FAFC] rounded-2xl p-3 border border-slate-100">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Pending</p>
-                                        <p className="text-xl font-black text-slate-900">05</p>
+                                        <p className="text-xl font-black text-slate-900">{pendingCount < 10 ? `0${pendingCount}` : pendingCount}</p>
                                     </div>
                                 </div>
                             </div>
@@ -279,7 +389,10 @@ const StudentApplications = () => {
                                         </div>
                                     ))}
                                 </div>
-                                <button className="w-full mt-6 py-3 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-xl hover:bg-indigo-100 transition-colors">
+                                <button
+                                    onClick={handleViewCalendar}
+                                    className="w-full mt-6 py-3 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-xl hover:bg-indigo-100 transition-colors"
+                                >
                                     View Interview Calendar
                                 </button>
                             </div>

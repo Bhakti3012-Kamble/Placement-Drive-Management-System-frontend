@@ -25,15 +25,18 @@ const Navbar = () => {
         checkAuth();
         window.addEventListener('scroll', handleScroll);
         window.addEventListener('storage', checkAuth); // Listen for login/logout in other tabs
+        window.addEventListener('authChange', checkAuth); // Listen for login/logout in same tab
         return () => {
             window.removeEventListener('scroll', handleScroll);
             window.removeEventListener('storage', checkAuth);
+            window.removeEventListener('authChange', checkAuth);
         };
     }, []);
 
     const handleLogout = () => {
         localStorage.clear();
         setUser(null);
+        window.dispatchEvent(new Event('authChange'));
         navigate('/login');
     };
 
@@ -122,10 +125,13 @@ const Navbar = () => {
 
             {/* Mobile Menu Dropdown */}
             {isOpen && (
-                <div className="md:hidden absolute top-20 left-0 w-full bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-xl">
+                <div className="md:hidden absolute top-20 left-0 w-full bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-xl animate-in slide-in-from-top-4 duration-300">
                     <div className="px-4 pt-4 pb-6 space-y-2">
                         <Link to="/" onClick={() => handleNavigation('/')} className="block w-full text-left px-4 py-3 rounded-xl text-base font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
                             Home
+                        </Link>
+                        <Link to="/features" onClick={() => handleNavigation('/features')} className="block w-full text-left px-4 py-3 rounded-xl text-base font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
+                            Features
                         </Link>
                         <Link to="/about" onClick={() => handleNavigation('/about')} className="block w-full text-left px-4 py-3 rounded-xl text-base font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
                             About Us
@@ -133,14 +139,32 @@ const Navbar = () => {
                         <Link to="/contact" onClick={() => handleNavigation('/contact')} className="block w-full text-left px-4 py-3 rounded-xl text-base font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
                             Contact
                         </Link>
-                        <div className="pt-4 grid grid-cols-2 gap-4">
-                            <Link to="/login" onClick={() => handleNavigation('/login')} className="flex items-center justify-center w-full px-4 py-3 border border-gray-200 rounded-xl text-slate-600 font-medium hover:bg-gray-50 transition-colors">
-                                Log in
-                            </Link>
-                            <Link to="/register" onClick={() => handleNavigation('/register')} className="flex items-center justify-center w-full px-4 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/30">
-                                Register
-                            </Link>
-                        </div>
+                        {user ? (
+                            <div className="pt-4 space-y-2">
+                                <Link
+                                    to={`/${user.role === 'company' ? 'recruiter' : user.role}/dashboard`}
+                                    onClick={() => setIsOpen(false)}
+                                    className="block w-full text-center px-4 py-3 bg-indigo-50 text-indigo-600 rounded-xl font-bold"
+                                >
+                                    Dashboard
+                                </Link>
+                                <button
+                                    onClick={handleLogout}
+                                    className="w-full px-4 py-3 bg-slate-900 text-white rounded-xl font-bold"
+                                >
+                                    Log out
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="pt-4 grid grid-cols-2 gap-4">
+                                <Link to="/login" onClick={() => handleNavigation('/login')} className="flex items-center justify-center w-full px-4 py-3 border border-gray-200 rounded-xl text-slate-600 font-medium hover:bg-gray-50 transition-colors">
+                                    Log in
+                                </Link>
+                                <Link to="/register" onClick={() => handleNavigation('/register')} className="flex items-center justify-center w-full px-4 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/30">
+                                    Register
+                                </Link>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

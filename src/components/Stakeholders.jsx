@@ -29,11 +29,11 @@ const Stakeholders = () => {
     return (
         <section className="py-24 bg-white relative">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="text-center mb-20">
+                <div className="text-center mb-12 lg:mb-20">
                     <span className="inline-block py-1 px-3 rounded-full bg-slate-100 text-slate-600 text-xs font-bold tracking-widest uppercase mb-4">
                         Who is it for?
                     </span>
-                    <h2 className="text-3xl md:text-5xl font-bold text-slate-900 tracking-tight">
+                    <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-slate-900 tracking-tight">
                         One System, <span className="text-indigo-600">Three Stakeholders</span>
                     </h2>
                 </div>

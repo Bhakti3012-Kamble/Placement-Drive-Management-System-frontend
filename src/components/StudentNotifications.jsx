@@ -1,95 +1,131 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Home, User, Briefcase, Layout, Calendar,
     BookOpen, Bell, Settings, Search, Check,
     Trash2, AlertCircle, Briefcase as JobIcon,
     Calendar as InterviewIcon, Info, ExternalLink,
-    ArrowLeft, Clock
+    ArrowLeft, Clock, Loader2
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
 const StudentNotifications = () => {
     const navigate = useNavigate();
-    const [notifications, setNotifications] = useState([
-        {
-            id: 1,
-            type: 'interview',
-            title: 'Interview Invitation: GlobalTech Solutions',
-            description: 'You have been shortlisted for the Technical Round. Please select a convenient time slot before EOD.',
-            time: '2 hours ago',
-            read: false,
-            group: 'Today',
-            icon: InterviewIcon,
-            color: 'bg-blue-100 text-blue-600',
-            dotColor: 'bg-blue-600'
-        },
-        {
-            id: 2,
-            type: 'job',
-            title: 'New Job Drive: Quantum Systems',
-            description: 'A new placement drive for the role of Junior DevOps Engineer has been posted. Eligibility: 7.5+ CGPA.',
-            time: '5 hours ago',
-            read: false,
-            group: 'Today',
-            icon: JobIcon,
-            color: 'bg-orange-100 text-orange-600',
-            dotColor: 'bg-blue-600'
-        },
-        {
-            id: 3,
-            type: 'success',
-            title: 'Application Update: Nexus Financials',
-            description: 'Congratulations! Your offer letter for Nexus Financials has been generated and is ready for review.',
-            time: '2 days ago',
-            read: true,
-            group: 'This Week',
-            icon: Check,
-            color: 'bg-green-100 text-green-600',
-            dotColor: 'bg-transparent'
-        },
-        {
-            id: 4,
-            type: 'alert',
-            title: 'Incomplete Profile Alert',
-            description: 'Your 6th-semester mark sheet is missing. Please upload it to remain eligible for upcoming drives.',
-            time: '4 days ago',
-            read: true,
-            group: 'This Week',
-            icon: AlertCircle,
-            color: 'bg-red-100 text-red-600',
-            dotColor: 'bg-transparent'
-        },
-        {
-            id: 5,
-            type: 'rejection',
-            title: 'Status Update: CloudNet Inc',
-            description: 'We regret to inform you that you have not been selected for the SRE Intern position at this time.',
-            time: 'Oct 12, 2024',
-            read: true,
-            group: 'Earlier',
-            icon: Info,
-            color: 'bg-red-50 text-red-500',
-            dotColor: 'bg-transparent'
+    const [notifications, setNotifications] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [profile, setProfile] = useState(null);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [notifRes, profileRes] = await Promise.all([
+                    api.get('/students/notifications'),
+                    api.get('/students/me')
+                ]);
+
+                const mappedNotifs = notifRes.data.data.map(n => ({
+                    ...n,
+                    id: n._id,
+                    title: n.title,
+                    description: n.message, // Map message to description
+                    icon: n.type === 'interview' ? InterviewIcon : (n.type === 'job' ? JobIcon : (n.type === 'application' ? Check : Info)),
+                    color: getNotifColor(n.type),
+                    dotColor: getDotColor(n.type), // Add dot color for unread
+                    group: getNotifGroup(n.createdAt),
+                    time: formatTime(n.createdAt)
+                }));
+
+                setNotifications(mappedNotifs);
+                setProfile(profileRes.data.data);
+            } catch (err) {
+                console.error('Error fetching notifications:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    const getNotifColor = (type) => {
+        switch (type) {
+            case 'interview': return 'bg-blue-100 text-blue-600';
+            case 'job': return 'bg-orange-100 text-orange-600';
+            case 'success':
+            case 'application': return 'bg-green-100 text-green-600';
+            case 'error':
+            case 'alert': return 'bg-red-100 text-red-600';
+            default: return 'bg-indigo-100 text-indigo-600';
         }
-    ]);
-
-    const markAllAsRead = () => {
-        setNotifications(notifications.map(n => ({ ...n, read: true })));
     };
 
-    const deleteNotification = (id) => {
-        setNotifications(notifications.filter(n => n.id !== id));
+    const getDotColor = (type) => {
+        switch (type) {
+            case 'interview': return 'bg-blue-500';
+            case 'job': return 'bg-orange-500';
+            case 'success':
+            case 'application': return 'bg-green-500';
+            case 'error':
+            case 'alert': return 'bg-red-500';
+            default: return 'bg-indigo-500';
+        }
     };
+
+    const getNotifGroup = (date) => {
+        const d = new Date(date);
+        const now = new Date();
+        const diff = now - d;
+        const oneDay = 24 * 60 * 60 * 1000;
+
+        if (diff < oneDay) return 'Today';
+        if (diff < 7 * oneDay) return 'This Week';
+        return 'Earlier';
+    };
+
+    const formatTime = (date) => {
+        const d = new Date(date);
+        const now = new Date();
+        const diff = now - d;
+        const seconds = Math.floor(diff / 1000);
+
+        if (seconds < 60) return 'Just now';
+        if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+        return d.toLocaleDateString();
+    };
+
+    const markAllAsRead = async () => {
+        try {
+            const unread = notifications.filter(n => !n.read);
+            await Promise.all(unread.map(n => api.put(`/students/notifications/${n.id}/read`)));
+            setNotifications(notifications.map(n => ({ ...n, read: true })));
+        } catch (err) {
+            console.error('Error marking all as read:', err);
+        }
+    };
+
+    const deleteNotification = async (id) => {
+        try {
+            await api.delete(`/students/notifications/${id}`);
+            setNotifications(notifications.filter(n => n.id !== id));
+        } catch (err) {
+            console.error('Error deleting notification:', err);
+        }
+    };
+
+    if (loading) {
+        return <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <Loader2 className="animate-spin text-indigo-600" size={48} />
+        </div>;
+    }
+
+    const { name: fullName = 'Student Name', email = 'student@univ.edu' } = profile?.user || {};
 
     const groupedNotifications = {
         'Today': notifications.filter(n => n.group === 'Today'),
         'This Week': notifications.filter(n => n.group === 'This Week'),
         'Earlier': notifications.filter(n => n.group === 'Earlier')
     };
-
-    // Get profile data from localStorage
-    const profileData = JSON.parse(localStorage.getItem('studentProfileData')) || {};
-    const { fullName = 'Student Name', email = 'student@univ.edu' } = profileData;
 
     return (
         <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden">

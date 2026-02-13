@@ -21,8 +21,8 @@ const Hero = () => {
                             Next Gen Placement Management
                         </div>
 
-                        <h1 className="text-5xl lg:text-7xl font-bold text-slate-900 leading-[1.1] mb-8 tracking-tight">
-                            Streamline Your <br />
+                        <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold text-slate-900 leading-[1.1] mb-8 tracking-tight">
+                            Streamline Your <br className="hidden sm:block" />
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-sky-500">
                                 Campus Drives
                             </span>

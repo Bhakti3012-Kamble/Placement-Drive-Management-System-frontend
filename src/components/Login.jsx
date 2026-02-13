@@ -25,21 +25,30 @@ const Login = () => {
         setError(null);
 
         try {
-            const res = await api.post('/auth/login', { email, password });
+            const res = await api.post('/auth/login', { email, password, role });
 
             // Store token and user data
             localStorage.setItem('token', res.data.token);
             localStorage.setItem('user', JSON.stringify(res.data.user));
 
-            // Redirect based on role (simple redirect for now)
-            if (res.data.user.role === 'student') {
-                navigate('/student-dashboard');
+            // Notify other components (like Navbar) that auth state changed
+            window.dispatchEvent(new Event('authChange'));
+
+            // Redirect based on user's actual role
+            const userRole = res.data.user.role;
+
+            if (userRole === 'student') {
+                navigate('/student/dashboard');
+            } else if (userRole === 'company') {
+                navigate('/recruiter/dashboard');
+            } else if (userRole === 'admin') {
+                navigate('/admin/dashboard');
             } else {
-                // Handle recruiter/admin redirects
                 navigate('/');
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Login failed. Please try again.');
+            console.error('Login error:', err.response?.data);
+            setError(err.response?.data?.error || err.response?.data?.message || 'Login failed. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -92,16 +101,16 @@ const Login = () => {
             </div>
 
             {/* Right Column - Login Form */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-16">
+            <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 lg:p-16">
                 <div className="w-full max-w-md space-y-8">
 
                     {/* Header */}
                     <div className="text-center lg:text-left">
-                        <Link to="/" className="inline-flex items-center text-sm text-slate-500 hover:text-indigo-600 mb-8 transition-colors">
+                        <Link to="/" className="inline-flex items-center text-sm text-slate-500 hover:text-indigo-600 mb-6 sm:mb-8 transition-colors">
                             <ArrowLeft size={16} className="mr-2" /> Back to Home
                         </Link>
-                        <h2 className="text-3xl font-bold text-slate-900">Welcome Back</h2>
-                        <p className="text-slate-500 mt-2">Please enter your details to access your account.</p>
+                        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Welcome Back</h2>
+                        <p className="text-slate-500 mt-2 text-sm sm:text-base">Please enter your details to access your account.</p>
                     </div>
 
                     {/* Role Toggles */}

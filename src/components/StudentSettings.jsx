@@ -1,15 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Home, User, Briefcase, Layout, Calendar,
     BookOpen, Bell, Settings, Search, Lock,
     Shield, Share2, LogOut, Trash2, Github,
     Linkedin, ExternalLink, HelpCircle, ArrowLeft,
-    Mail, Key, Check
+    Mail, Key, Check, Loader2, AlertCircle
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
 const StudentSettings = () => {
     const navigate = useNavigate();
+    const [loading, setLoading] = useState(true);
+    const [profile, setProfile] = useState(null);
+    const [saving, setSaving] = useState({ account: false, preferences: false, privacy: false });
+    const [message, setMessage] = useState({ type: '', text: '' });
+
+    const [formData, setFormData] = useState({
+        name: '',
+        email: '',
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+    });
+
     const [privacy, setPrivacy] = useState({
         visibleToRecruiters: true,
         showPlacementStatus: false
@@ -20,6 +34,106 @@ const StudentSettings = () => {
         statusChanges: { email: true, sms: true, inApp: true },
         interviewReminders: { email: true, sms: true, inApp: true }
     });
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const res = await api.get('/students/me');
+                const data = res.data.data;
+                const userData = JSON.parse(localStorage.getItem('user') || '{}');
+
+                setProfile(data);
+                setFormData(prev => ({
+                    ...prev,
+                    name: data?.user?.name || userData.name || '',
+                    email: data?.user?.email || userData.email || ''
+                }));
+
+                if (data?.notificationPreferences) {
+                    setNotifPrefs(data.notificationPreferences);
+                }
+                if (data?.privacySettings) {
+                    setPrivacy(data.privacySettings);
+                }
+            } catch (err) {
+                console.error('Error fetching profile:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchProfile();
+    }, []);
+
+    const showMessage = (type, text) => {
+        setMessage({ type, text });
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    };
+
+    const handleInputChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleSaveChanges = async () => {
+        setSaving(prev => ({ ...prev, account: true }));
+        try {
+            // Update Name
+            if (formData.name !== (profile?.user?.name || '')) {
+                await api.put('/students/me', { name: formData.name });
+            }
+
+            // Update Password
+            if (formData.newPassword) {
+                if (formData.newPassword !== formData.confirmPassword) {
+                    throw new Error('Passwords do not match');
+                }
+                if (!formData.currentPassword) {
+                    throw new Error('Current password is required to change password');
+                }
+                await api.put('/auth/update-password', {
+                    currentPassword: formData.currentPassword,
+                    newPassword: formData.newPassword
+                });
+                setFormData(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
+            }
+
+            showMessage('success', 'Account updated successfully!');
+        } catch (err) {
+            console.error('Error updating profile:', err);
+            showMessage('error', err.response?.data?.message || err.message || 'Update failed');
+        } finally {
+            setSaving(prev => ({ ...prev, account: false }));
+        }
+    };
+
+    const handleSavePreferences = async () => {
+        setSaving(prev => ({ ...prev, preferences: true }));
+        try {
+            await api.put('/students/me', { notificationPreferences: notifPrefs });
+            showMessage('success', 'Preferences saved!');
+        } catch (err) {
+            showMessage('error', 'Failed to save preferences');
+        } finally {
+            setSaving(prev => ({ ...prev, preferences: false }));
+        }
+    };
+
+    const handleSavePrivacy = async () => {
+        setSaving(prev => ({ ...prev, privacy: true }));
+        try {
+            await api.put('/students/me', { privacySettings: privacy });
+            showMessage('success', 'Privacy settings updated!');
+        } catch (err) {
+            showMessage('error', 'Failed to update privacy');
+        } finally {
+            setSaving(prev => ({ ...prev, privacy: false }));
+        }
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/login');
+    };
 
     const togglePrivacy = (key) => {
         setPrivacy(prev => ({ ...prev, [key]: !prev[key] }));
@@ -32,9 +146,13 @@ const StudentSettings = () => {
         }));
     };
 
-    // Get profile data from localStorage
-    const profileData = JSON.parse(localStorage.getItem('studentProfileData')) || {};
-    const { fullName = 'Student Name', email = 'student@univ.edu' } = profileData;
+    if (loading) {
+        return <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <Loader2 className="animate-spin text-indigo-600" size={48} />
+        </div>;
+    }
+
+    const { name: fullName = 'Student Name', email = 'student@univ.edu' } = profile?.user || { name: formData.name, email: formData.email };
 
     return (
         <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden">
@@ -78,8 +196,8 @@ const StudentSettings = () => {
                             key={item.label}
                             to={item.path || '#'}
                             className={`flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-sm transition-all duration-300 group ${item.active
-                                ? 'bg-indigo-50 text-indigo-600 shadow-sm'
-                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                                    ? 'bg-indigo-50 text-indigo-600 shadow-sm'
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                                 }`}
                         >
                             <item.icon size={20} strokeWidth={item.active ? 3 : 2} className={item.active ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-900'} />
@@ -109,6 +227,12 @@ const StudentSettings = () => {
                         <h1 className="text-2xl font-black text-slate-900 tracking-tight">Settings</h1>
                         <p className="text-sm font-medium text-slate-500 mt-1">Manage your account and preferences</p>
                     </div>
+                    {message.text && (
+                        <div className={`px-6 py-2 rounded-xl border flex items-center gap-3 animate-in slide-in-from-top-4 duration-300 ${message.type === 'success' ? 'bg-green-50 border-green-100 text-green-700' : 'bg-red-50 border-red-100 text-red-700'}`}>
+                            {message.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
+                            <span className="font-bold text-xs">{message.text}</span>
+                        </div>
+                    )}
                     <button className="w-10 h-10 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
                         <HelpCircle size={20} />
                     </button>
@@ -124,30 +248,76 @@ const StudentSettings = () => {
                             </h3>
                             <div className="grid grid-cols-2 gap-8 mb-8">
                                 <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Full Name</label>
+                                    <div className="relative">
+                                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                        <input
+                                            name="name"
+                                            value={formData.name}
+                                            onChange={handleInputChange}
+                                            type="text"
+                                            placeholder="Enter your name"
+                                            className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-12 pr-4 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
                                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Email Address</label>
                                     <div className="relative">
                                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                        <input type="email" placeholder="Enter email address" className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-12 pr-4 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all" />
+                                        <input
+                                            disabled
+                                            value={formData.email}
+                                            type="email"
+                                            placeholder="Enter email address"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-4 text-sm font-bold text-slate-400 outline-none cursor-not-allowed"
+                                        />
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Current Password</label>
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Current Password (Required for changes)</label>
                                     <div className="relative">
-                                        <input type="password" placeholder="Enter current password" className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all" />
+                                        <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                        <input
+                                            name="currentPassword"
+                                            value={formData.currentPassword}
+                                            onChange={handleInputChange}
+                                            type="password"
+                                            placeholder="Enter current password"
+                                            className="w-full bg-white border border-slate-200 rounded-xl py-3 pl-12 pr-4 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all"
+                                        />
                                     </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">New Password</label>
-                                    <input type="password" placeholder="Enter new password" className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all" />
+                                <div className="space-y-2 md:col-start-1">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">New Password (Optional)</label>
+                                    <input
+                                        name="newPassword"
+                                        value={formData.newPassword}
+                                        onChange={handleInputChange}
+                                        type="password"
+                                        placeholder="Enter new password"
+                                        className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all"
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Confirm New Password</label>
-                                    <input type="password" placeholder="Confirm new password" className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all" />
+                                    <input
+                                        name="confirmPassword"
+                                        value={formData.confirmPassword}
+                                        onChange={handleInputChange}
+                                        type="password"
+                                        placeholder="Confirm new password"
+                                        className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all"
+                                    />
                                 </div>
                             </div>
                             <div className="flex justify-end">
-                                <button className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-xs hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
-                                    Save Changes
+                                <button
+                                    onClick={handleSaveChanges}
+                                    disabled={saving.account}
+                                    className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-xs hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 disabled:opacity-70 flex items-center gap-2"
+                                >
+                                    {saving.account ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : 'Save Account Changes'}
                                 </button>
                             </div>
                         </div>
@@ -189,8 +359,12 @@ const StudentSettings = () => {
                                 ))}
                             </div>
                             <div className="flex justify-end mt-8">
-                                <button className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-xs hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
-                                    Save Preferences
+                                <button
+                                    onClick={handleSavePreferences}
+                                    disabled={saving.preferences}
+                                    className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-xs hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 disabled:opacity-70 flex items-center gap-2"
+                                >
+                                    {saving.preferences ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : 'Save Preferences'}
                                 </button>
                             </div>
                         </div>
@@ -227,8 +401,12 @@ const StudentSettings = () => {
                                 </div>
                             </div>
                             <div className="flex justify-end mt-8">
-                                <button className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-xs hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
-                                    Save Privacy
+                                <button
+                                    onClick={handleSavePrivacy}
+                                    disabled={saving.privacy}
+                                    className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-xs hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 disabled:opacity-70 flex items-center gap-2"
+                                >
+                                    {saving.privacy ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : 'Save Privacy Settings'}
                                 </button>
                             </div>
                         </div>

@@ -4,15 +4,35 @@ import {
     Layout, Search, Bell, ChevronRight, CheckCircle2,
     MessageSquare, BookOpen, ExternalLink, Plus,
     ArrowUpRight, Clock, MapPin, Award, TrendingUp,
-    ArrowLeft, Settings
+    ArrowLeft, Settings, ShieldCheck, LogOut, Menu
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
+
+// Internal utility icons
+const Send = ({ size = 24, ...props }) => (
+    <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        {...props}
+    >
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+    </svg>
+);
 
 const StudentDashboard = () => {
     const navigate = useNavigate();
     const [jobs, setJobs] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
+    const [profile, setProfile] = React.useState(null);
+    const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
 
     React.useEffect(() => {
         const fetchData = async () => {
@@ -47,10 +67,14 @@ const StudentDashboard = () => {
     const firstName = fullName.split(' ')[0];
     const applications = profile?.applications || [];
 
+    const upcomingInterviews = applications.filter(app =>
+        app.interviewDate && new Date(app.interviewDate) > new Date()
+    );
+
     const stats = [
         { label: 'Applied Jobs', value: applications.length, icon: Send, color: 'blue' },
         { label: 'Shortlisted', value: applications.filter(app => app.status === 'shortlisted').length, icon: ShieldCheck, color: 'green' },
-        { label: 'Upcoming Interviews', value: '00', icon: Calendar, color: 'orange' }
+        { label: 'Upcoming Interviews', value: upcomingInterviews.length.toString().padStart(2, '0'), icon: Calendar, color: 'orange' }
     ];
 
     const jobDrives = jobs.map(job => ({
@@ -74,10 +98,17 @@ const StudentDashboard = () => {
     }));
 
     return (
-        <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden">
+        <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden relative">
+            {/* Mobile Sidebar Overlay */}
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden"
+                    onClick={() => setIsSidebarOpen(false)}
+                ></div>
+            )}
 
             {/* Sidebar */}
-            <aside className="w-72 bg-white border-r border-slate-200 flex flex-col h-full sticky top-0 shrink-0">
+            <aside className={`fixed inset-y-0 left-0 w-72 bg-white border-r border-slate-200 flex flex-col h-full z-50 transition-transform duration-300 lg:static lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 <div className="p-8">
                     <Link to="/" className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-indigo-100 italic">P</div>
@@ -160,9 +191,15 @@ const StudentDashboard = () => {
             <div className="flex-1 flex flex-col h-full overflow-hidden">
 
                 {/* Top Header */}
-                <header className="h-20 bg-white border-b border-slate-100 px-10 flex items-center justify-between sticky top-0 z-10 shrink-0">
+                <header className="h-20 bg-white border-b border-slate-100 px-6 lg:px-10 flex items-center justify-between sticky top-0 z-10 shrink-0">
                     <div className="flex items-center gap-4 flex-1 max-w-2xl">
-                        <div className="relative w-full group">
+                        <button
+                            onClick={() => setIsSidebarOpen(true)}
+                            className="p-2 text-slate-500 lg:hidden hover:bg-slate-50 rounded-xl transition-colors"
+                        >
+                            <Menu size={24} />
+                        </button>
+                        <div className="relative w-full group hidden sm:block">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={20} />
                             <input
                                 type="text"
@@ -172,25 +209,25 @@ const StudentDashboard = () => {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-6">
-                        <button className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all relative">
-                            <Bell size={22} />
-                            <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                    <div className="flex items-center gap-3 lg:gap-6">
+                        <button className="w-10 h-10 lg:w-12 lg:h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all relative">
+                            <Bell size={20} />
+                            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
                         </button>
-                        <div className="flex items-center gap-4 pl-6 border-l border-slate-100">
-                            <div className="text-right">
+                        <div className="flex items-center gap-3 lg:gap-4 pl-3 lg:pl-6 border-l border-slate-100">
+                            <div className="text-right hidden sm:block">
                                 <p className="text-sm font-black text-slate-900 leading-none">{fullName}</p>
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1.5">CS Student • 2024</p>
                             </div>
-                            <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold overflow-hidden border-2 border-white shadow-sm ring-1 ring-slate-100">
-                                <User size={24} />
+                            <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold overflow-hidden border-2 border-white shadow-sm ring-1 ring-slate-100 shrink-0">
+                                <User size={20} />
                             </div>
                         </div>
                     </div>
                 </header>
 
                 {/* Dashboard Scrollable Area */}
-                <main className="flex-1 overflow-y-auto p-10">
+                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
 
                     {/* Navigation Buttons */}
                     <div className="flex items-center gap-4 mb-8">
@@ -205,29 +242,29 @@ const StudentDashboard = () => {
                     <div className="max-w-7xl mx-auto space-y-10">
                         {/* Welcome Section */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
-                            <div className="lg:col-span-2 bg-white rounded-[2.5rem] border border-slate-200 p-10 flex items-center justify-between shadow-sm relative overflow-hidden group">
-                                <div className="relative z-10 flex-1">
-                                    <h2 className="text-4xl font-black text-slate-900 mb-4 tracking-tight">Welcome back, {firstName}! 👋</h2>
+                            <div className="lg:col-span-2 bg-white rounded-[2.5rem] border border-slate-200 p-6 lg:p-10 flex flex-col sm:flex-row items-center justify-between shadow-sm relative overflow-hidden group">
+                                <div className="relative z-10 flex-1 text-center sm:text-left">
+                                    <h2 className="text-3xl lg:text-4xl font-black text-slate-900 mb-4 tracking-tight">Welcome back, {firstName}! 👋</h2>
                                     <p className="text-slate-500 font-medium mb-8 max-w-md leading-relaxed">
                                         Your profile is nearly complete. Adding a portfolio link could increase your shortlist chances by 40%.
                                     </p>
-                                    <div className="flex flex-wrap gap-4">
-                                        <button className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm hover:bg-indigo-700 hover:-translate-y-1 transition-all shadow-lg shadow-indigo-100 active:scale-95">
+                                    <div className="flex flex-wrap gap-4 justify-center sm:justify-start">
+                                        <button className="px-6 lg:px-8 py-3 lg:py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs lg:text-sm hover:bg-indigo-700 hover:-translate-y-1 transition-all shadow-lg shadow-indigo-100 active:scale-95">
                                             Complete Profile
                                         </button>
-                                        <button className="px-8 py-4 bg-[#F1F5F9] text-slate-600 rounded-2xl font-black text-sm hover:bg-slate-200 transition-all active:scale-95">
+                                        <button className="px-6 lg:px-8 py-3 lg:py-4 bg-[#F1F5F9] text-slate-600 rounded-2xl font-black text-xs lg:text-sm hover:bg-slate-200 transition-all active:scale-95">
                                             Download Resume
                                         </button>
                                     </div>
                                 </div>
-                                <div className="relative shrink-0 flex flex-col items-center justify-center p-6 border-l border-slate-100 ml-10">
-                                    <div className="relative w-32 h-32 flex items-center justify-center">
+                                <div className="relative shrink-0 flex flex-col items-center justify-center p-6 border-t sm:border-t-0 sm:border-l border-slate-100 mt-8 sm:mt-0 sm:ml-10">
+                                    <div className="relative w-24 h-24 lg:w-32 lg:h-32 flex items-center justify-center">
                                         <svg className="w-full h-full -rotate-90">
-                                            <circle cx="64" cy="64" r="56" fill="none" stroke="#F1F5F9" strokeWidth="12" />
-                                            <circle cx="64" cy="64" r="56" fill="none" stroke="#6366f1" strokeWidth="12" strokeDasharray="351.85" strokeDashoffset="52.77" strokeLinecap="round" className="transition-all duration-1000 ease-out" />
+                                            <circle cx="50%" cy="50%" r="44%" fill="none" stroke="#F1F5F9" strokeWidth="10" />
+                                            <circle cx="50%" cy="50%" r="44%" fill="none" stroke="#6366f1" strokeWidth="10" strokeDasharray="276" strokeDashoffset="41" strokeLinecap="round" className="transition-all duration-1000 ease-out" />
                                         </svg>
                                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                            <span className="text-3xl font-black text-slate-900">85%</span>
+                                            <span className="text-2xl lg:text-3xl font-black text-slate-900">85%</span>
                                         </div>
                                     </div>
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">Profile Power</p>
@@ -270,7 +307,10 @@ const StudentDashboard = () => {
                                         <div className="w-1.5 h-6 bg-indigo-600 rounded-full"></div>
                                         Recommended Job Drives
                                     </h3>
-                                    <button className="flex items-center gap-2 text-indigo-600 font-bold text-sm hover:underline group">
+                                    <button
+                                        onClick={() => navigate('/student/job-drives')}
+                                        className="flex items-center gap-2 text-indigo-600 font-bold text-sm hover:underline group"
+                                    >
                                         View all drives <ArrowUpRight size={18} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                                     </button>
                                 </div>
@@ -307,11 +347,15 @@ const StudentDashboard = () => {
                                                 <button
                                                     onClick={async () => {
                                                         try {
-                                                            await api.post(`/jobs/${job._id}/apply`);
+                                                            await api.post(`/students/apply/${job._id}`);
                                                             alert('Successfully applied!');
-                                                            window.location.reload(); // Quick refresh to update stats
+                                                            window.location.reload();
                                                         } catch (err) {
-                                                            alert(err.response?.data?.message || 'Failed to apply');
+                                                            if (err.response?.status === 401) {
+                                                                navigate('/login');
+                                                            } else {
+                                                                alert(err.response?.data?.message || 'Failed to apply');
+                                                            }
                                                         }
                                                     }}
                                                     className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-slate-800 transition-all active:scale-95"
@@ -355,18 +399,35 @@ const StudentDashboard = () => {
                                         Quick Actions
                                     </h3>
                                     <div className="space-y-4 relative z-10">
-                                        {[
-                                            { icon: Plus, label: 'Upload New Resume' },
-                                            { icon: MessageSquare, label: 'Message TPO Office' },
-                                            { icon: Award, label: 'Practice Mock Tests' }
-                                        ].map((btn) => (
-                                            <button key={btn.label} className="w-full p-5 bg-white/10 border border-white/20 rounded-2xl text-white font-black text-xs uppercase tracking-tighter text-left flex items-center gap-4 hover:bg-white/20 transition-all group/btn">
-                                                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white shrink-0 group-hover/btn:scale-110 transition-transform">
-                                                    <btn.icon size={18} strokeWidth={3} />
-                                                </div>
-                                                {btn.label}
-                                            </button>
-                                        ))}
+                                        <button
+                                            onClick={() => navigate('/student/profile')}
+                                            className="w-full p-5 bg-white/10 border border-white/20 rounded-2xl text-white font-black text-xs uppercase tracking-tighter text-left flex items-center gap-4 hover:bg-white/20 transition-all group/btn"
+                                        >
+                                            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white shrink-0 group-hover/btn:scale-110 transition-transform">
+                                                <Plus size={18} strokeWidth={3} />
+                                            </div>
+                                            Upload New Resume
+                                        </button>
+
+                                        <button
+                                            onClick={() => navigate('/contact')}
+                                            className="w-full p-5 bg-white/10 border border-white/20 rounded-2xl text-white font-black text-xs uppercase tracking-tighter text-left flex items-center gap-4 hover:bg-white/20 transition-all group/btn"
+                                        >
+                                            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white shrink-0 group-hover/btn:scale-110 transition-transform">
+                                                <MessageSquare size={18} strokeWidth={3} />
+                                            </div>
+                                            Message TPO Office
+                                        </button>
+
+                                        <button
+                                            onClick={() => navigate('/student/resources')}
+                                            className="w-full p-5 bg-white/10 border border-white/20 rounded-2xl text-white font-black text-xs uppercase tracking-tighter text-left flex items-center gap-4 hover:bg-white/20 transition-all group/btn"
+                                        >
+                                            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white shrink-0 group-hover/btn:scale-110 transition-transform">
+                                                <Award size={18} strokeWidth={3} />
+                                            </div>
+                                            Practice Mock Tests
+                                        </button>
                                     </div>
                                     <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -mr-24 -mt-24 group-hover:scale-110 transition-transform duration-700"></div>
                                 </div>
@@ -377,28 +438,57 @@ const StudentDashboard = () => {
                                         <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3 uppercase text-xs tracking-widest text-slate-400">
                                             Next Interview
                                         </h3>
-                                        <button className="text-slate-300 hover:text-slate-600"><Plus size={20} /></button>
+                                        <button onClick={() => navigate('/student/interview-schedule')} className="text-slate-300 hover:text-slate-600"><Plus size={20} /></button>
                                     </div>
-                                    <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100 hover:border-indigo-200 transition-all">
-                                        <div className="flex items-center gap-5 mb-8">
-                                            <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center p-3 font-black text-slate-900 italic transform transition-transform group-hover:scale-110">A</div>
-                                            <div>
-                                                <h4 className="text-xl font-black text-slate-900 leading-tight tracking-tight uppercase">Adobe Systems</h4>
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Technical Round 1</p>
+
+                                    {upcomingInterviews.length > 0 ? (
+                                        <>
+                                            <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100 hover:border-indigo-200 transition-all">
+                                                <div className="flex items-center gap-5 mb-8">
+                                                    <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center p-3 font-black text-slate-900 italic transform transition-transform group-hover:scale-110">
+                                                        {(upcomingInterviews[0].job?.company?.name || 'C')[0]}
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-xl font-black text-slate-900 leading-tight tracking-tight uppercase">
+                                                            {upcomingInterviews[0].job?.company?.name || 'Company'}
+                                                        </h4>
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">
+                                                            {upcomingInterviews[0].interviewRound || 'Interview'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-4">
+                                                    <div className="flex items-center gap-3 text-xs font-black text-slate-500 uppercase tracking-widest">
+                                                        <Clock size={16} className="text-indigo-500" />
+                                                        {new Date(upcomingInterviews[0].interviewDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </div>
+                                                    <div className="flex items-center gap-3 text-xs font-black text-slate-500 uppercase tracking-widest">
+                                                        <Calendar size={16} className="text-indigo-500" />
+                                                        {new Date(upcomingInterviews[0].interviewDate).toLocaleDateString()}
+                                                    </div>
+                                                </div>
                                             </div>
+                                            <button
+                                                onClick={() => navigate('/student/interview-schedule')}
+                                                className="w-full py-4 mt-6 bg-[#F8FAFC] text-indigo-600 text-xs font-black rounded-2xl uppercase tracking-widest hover:bg-indigo-50 transition-all"
+                                            >
+                                                View Full Schedule
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <div className="text-center py-8">
+                                            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                <Calendar size={24} className="text-slate-300" />
+                                            </div>
+                                            <p className="text-slate-500 font-bold text-sm">No upcoming interviews</p>
+                                            <button
+                                                onClick={() => navigate('/student/job-drives')}
+                                                className="mt-4 text-indigo-600 font-black text-xs uppercase tracking-widest hover:underline"
+                                            >
+                                                Apply for jobs
+                                            </button>
                                         </div>
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-3 text-xs font-black text-slate-500 uppercase tracking-widest">
-                                                <Clock size={16} className="text-indigo-500" /> 10:00 AM
-                                            </div>
-                                            <div className="flex items-center gap-3 text-xs font-black text-slate-500 uppercase tracking-widest">
-                                                <Calendar size={16} className="text-indigo-500" /> Tomorrow, Mar 22
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <button className="w-full py-4 mt-6 bg-[#F8FAFC] text-indigo-600 text-xs font-black rounded-2xl uppercase tracking-widest hover:bg-indigo-50 transition-all">
-                                        View Full Schedule
-                                    </button>
+                                    )}
                                 </div>
 
                                 {/* Market Insights */}
@@ -441,39 +531,8 @@ const StudentDashboard = () => {
     );
 };
 
-// Internal utility icons not already imported or used differently
-const Send = ({ size = 24, ...props }) => (
-    <svg
-        width={size}
-        height={size}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        {...props}
-    >
-        <line x1="22" y1="2" x2="11" y2="13"></line>
-        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-    </svg>
-);
+// End of StudentDashboard
 
-const ShieldCheck = ({ size = 24, ...props }) => (
-    <svg
-        width={size}
-        height={size}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        {...props}
-    >
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-        <path d="m9 12 2 2 4-4"></path>
-    </svg>
-);
+
 
 export default StudentDashboard;

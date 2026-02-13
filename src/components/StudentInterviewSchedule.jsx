@@ -1,58 +1,68 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Home, User, Briefcase, Layout, Calendar,
     BookOpen, Bell, Settings, Search, Clock,
     MapPin, Video, CheckCircle2, ArrowLeft,
-    ExternalLink, ChevronLeft, ChevronRight
+    ExternalLink, ChevronLeft, ChevronRight, Loader2
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
 const StudentInterviewSchedule = () => {
     const navigate = useNavigate();
     const [filter, setFilter] = useState('upcoming');
+    const [interviews, setInterviews] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [profile, setProfile] = useState(null);
 
-    const interviews = [
-        {
-            id: 1,
-            company: 'GlobalTech Solutions',
-            role: 'Software Engineer Intern',
-            date: 'Oct 24, 2024',
-            time: '02:00 PM - 03:00 PM',
-            type: 'Technical Round 1',
-            mode: 'Online (Video)',
-            status: 'upcoming',
-            link: 'https://meet.google.com/abc-defg-hij',
-            logo: 'G'
-        },
-        {
-            id: 2,
-            company: 'Quantum Systems',
-            role: 'DevOps Junior',
-            date: 'Oct 26, 2024',
-            time: '11:00 AM - 12:30 PM',
-            type: 'Technical Round 2',
-            mode: 'In-Person (Room 304)',
-            status: 'upcoming',
-            logo: 'Q'
-        },
-        {
-            id: 3,
-            company: 'Nexus Financials',
-            role: 'Data Analyst',
-            date: 'Oct 15, 2024',
-            time: '10:00 AM - 11:00 AM',
-            type: 'HR Interview',
-            mode: 'Online (Video)',
-            status: 'completed',
-            logo: 'N'
-        }
-    ];
+    useEffect(() => {
+        const fetchInterviews = async () => {
+            try {
+                const res = await api.get('/students/me');
+                setProfile(res.data.data);
+                const apps = res.data.data.applications || [];
 
+                // Filter apps with interview dates
+                const scheduledInterviews = apps
+                    .filter(app => app.interviewDate)
+                    .map(app => {
+                        const dateObj = new Date(app.interviewDate);
+                        const isUpcoming = dateObj > new Date();
+
+                        return {
+                            id: app._id,
+                            company: app.job?.company?.name || 'Company',
+                            role: app.job?.title || 'Applied Position',
+                            date: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                            time: dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                            type: app.interviewRound || 'Technical Round',
+                            mode: app.job?.location === 'Remote' ? 'Online (Video)' : `In-Person (${app.job?.location || 'Campus'})`,
+                            status: isUpcoming ? 'upcoming' : 'completed',
+                            link: app.job?.location === 'Remote' ? 'https://meet.google.com/pms-interview' : null,
+                            logo: (app.job?.company?.name || 'C')[0].toUpperCase(),
+                            rawDate: dateObj
+                        };
+                    });
+
+                setInterviews(scheduledInterviews.sort((a, b) => a.rawDate - b.rawDate));
+            } catch (err) {
+                console.error('Error fetching interviews:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchInterviews();
+    }, []);
     const filteredInterviews = interviews.filter(i => filter === 'all' || i.status === filter);
 
-    // Get profile data from localStorage
-    const profileData = JSON.parse(localStorage.getItem('studentProfileData')) || {};
-    const { fullName = 'Student Name', email = 'student@univ.edu' } = profileData;
+    if (loading) {
+        return <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <Loader2 className="animate-spin text-indigo-600" size={48} />
+        </div>;
+    }
+
+    const { name: fullName = 'Student Name', email = 'student@univ.edu' } = profile?.user || {};
 
     return (
         <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden">

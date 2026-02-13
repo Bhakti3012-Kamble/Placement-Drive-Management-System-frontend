@@ -76,6 +76,14 @@ const Register = () => {
                         <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wider shadow-lg shadow-blue-500/30">
                             Most Popular
                         </div>
+                        {/* Header */}
+                        <div className="text-center lg:text-left">
+                            <Link to="/" className="inline-flex items-center text-sm text-slate-500 hover:text-indigo-600 mb-6 sm:mb-8 transition-colors text-center">
+                                <ArrowLeft size={16} className="mr-2" /> Back to Home
+                            </Link>
+                            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Create Account</h2>
+                            <p className="text-slate-500 mt-2 text-sm sm:text-base">Join the next generation placement management ecosystem.</p>
+                        </div>
                         <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-6 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300">
                             <Briefcase size={32} />
                         </div>
